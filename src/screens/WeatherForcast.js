@@ -1,64 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView, StyleSheet, ScrollView, View, Text, StatusBar, Dimensions, FlatList, TouchableOpacity } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import LottieView from 'lottie-react-native';
-import api from '../service';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchAllWeather } from '../redux'
+
+const API = 'e6b29ddc286dbe32bbe1f001d81d6ed4'
+
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
 export default function WeatherForcast({ navigation, route }) {
     const [weatherData, setWeatherData] = useState(null)
     const [currentWeather, setCurrentWeather] = useState(null)
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const Weather = useSelector(state => state.AllWeather.weather) ?? null;
+
+    const dispatch = useDispatch()
+
+
+    useEffect(() => {
+        Geolocation.getCurrentPosition(info => {
+            dispatch(fetchAllWeather(`/onecall?lat=${info.coords.latitude}&lon=${info.coords.longitude}&units=metric&
+            exclude=hourly&appid=${API}`))
+        })
+    }, [])
 
     useEffect(() => {
         setLoading(true)
-        api.get().then(response => response)
-            .then((res) => {
-                if (res.status == 200) {
-                    console.log(res)
-                    setCurrentWeather(res.data.current);
-                    let temp = [];
-                    res.data.daily.forEach((item, index) => {
-                        if (Number(index) > 1 && Number(index) < 7) {
-                            temp.push(item)
-                        } else {
-                            console.log(JSON.stringify(item) + ' +  ' + index)
-                        }
-                    });
-                    setWeatherData(temp)
-                    console.log(JSON.stringify(weatherData))
-                    setLoading(false)
+        if (Weather != null) {
+            setCurrentWeather(Weather[0].current)
+            let temp = [];
+            Weather[0].daily.forEach((item, index) => {
+                if (Number(index) > 1 && Number(index) < 7) {
+                    temp.push(item)
                 } else {
-                    setCurrentWeather(null);
-                    setWeatherData(null)
-                    setLoading(false)
+                    console.log(JSON.stringify(item) + ' +  ' + index)
                 }
-            }
-            );
-    }, [])
+            });
+            setWeatherData(temp)
+            console.log(JSON.stringify(weatherData))
+            setLoading(false)
+        } else {
+            setTimeout(() => {
+                setLoading(false)
+            }, 10000);
+        }
+    }, [Weather])
 
     const _getWeatherReport = () => {
         setLoading(true)
-        Geolocation.getCurrentPosition(info => console.log(info));
-        api.get().then(response => response.data)
-            .then((res) => {
-                console.log(res)
-                setCurrentWeather(res.current);
-                let temp = [];
-                res.daily.forEach((item, index) => {
-                    if (Number(index) > 1 && Number(index) < 7) {
-                        temp.push(item)
-                    } else {
-                        console.log(JSON.stringify(item) + ' +  ' + index)
-                    }
-                });
-                setWeatherData(temp)
-                console.log(JSON.stringify(weatherData))
-                setLoading(false)
-            }
-
-            );
-
+        Geolocation.getCurrentPosition(info => {
+            dispatch(fetchAllWeather(`/onecall?lat=${info.coords.latitude}&lon=${info.coords.longitude}&units=metric&
+                exclude=hourly&appid=${API}`));
+        })
+        setLoading(false)
     }
     const todayDay = (i) => {
         var today = new Date();
@@ -79,13 +75,14 @@ export default function WeatherForcast({ navigation, route }) {
     const _renderTodayWeather = () => {
         return (
             <View style={{ height: windowHeight / 2, width: windowWidth, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderBottomColor: 'grey', borderBottomWidth: 1 }}>
-                <View style={{ alignSelf: 'center', justifyContent: 'space-between', alignItems: 'center', height: '30%' }}>
-                    <Text style={{ fontSize: 25 }}>{todayDay(0)}</Text>
-                    <Text style={{ fontSize: 32, fontWeight: '600' }}>
-                        {currentWeather.temp + '\xB0C'}
-                    </Text>
-                    <Text style={{ fontSize: 25 }}>Delhi</Text>
-                </View>
+                {currentWeather.length != 0 ?
+                    <View style={{ alignSelf: 'center', justifyContent: 'space-between', alignItems: 'center', height: '30%' }}>
+                        <Text style={{ fontSize: 25 }}>{todayDay(0)}</Text>
+                        <Text style={{ fontSize: 32, fontWeight: '600' }}>
+                            {currentWeather.temp + '\xB0C'}
+                        </Text>
+                        <Text style={{ fontSize: 25 }}>Delhi</Text>
+                    </View> : null}
             </View>
         )
     }
@@ -110,7 +107,6 @@ export default function WeatherForcast({ navigation, route }) {
                 <View style={{ height: '100%', width: windowWidth, alignSelf: 'center' }}>
                     {
                         weatherData != null ?
-
                             <FlatList
                                 data={weatherData}
                                 extraData={weatherData}
@@ -125,7 +121,7 @@ export default function WeatherForcast({ navigation, route }) {
                                 <View style={{ flex: 1, width: windowWidth - 30, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', padding: 10 }}>
                                     <Text style={{ fontSize: 60, fontWeight: '400', textAlign: 'left' }}>
                                         Something Went Wrong at our End
-                           </Text>
+                                    </Text>
                                     <TouchableOpacity
                                         onPress={() => _getWeatherReport()}
                                         style={{ alignItems: 'center', marginTop: 70, justifyContent: 'center', width: 100, height: 40, borderWidth: 1, borderColor: 'black' }}>
